@@ -1,0 +1,146 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #2d2d2d;
+  color: #fff;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.app {
+  min-height: 100vh;
+  padding: 1rem 1.5rem;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #fff;
+}
+
+.header-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.header-right {
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.last-update {
+  white-space: nowrap;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid #fff;
+  background: #383838;
+}
+
+.filters label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.filters input,
+.filters select {
+  background: #2d2d2d;
+  color: #fff;
+  border: 1px solid #fff;
+  padding: 0.4rem 0.6rem;
+  border-radius: 2px;
+  min-width: 100px;
+}
+
+.filters input::placeholder {
+  color: #aaa;
+}
+
+.btn {
+  background: #2d2d2d;
+  color: #fff;
+  border: 1px solid #fff;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  border-radius: 2px;
+  font-size: 1rem;
+}
+
+.btn:hover {
+  background: #404040;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid #fff;
+  margin-top: 1rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #383838;
+}
+
+th,
+td {
+  border: 1px solid #fff;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+th {
+  background: #2d2d2d;
+  white-space: nowrap;
+}
+
+td input.kpi-manual {
+  width: 100%;
+  min-width: 100px;
+  background: #2d2d2d;
+  color: #fff;
+  border: 1px solid #fff;
+  padding: 0.4rem;
+  border-radius: 2px;
+}
+
+td input.kpi-manual::placeholder {
+  color: #888;
+}
+
+.error {
+  color: #f88;
+  margin-top: 0.5rem;
+}
+
+.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.tmstmp-manual {
+  font-size: 0.85rem;
+  color: #ccc;
+}

@@ -1,0 +1,19 @@
+Запуск приложения (оба процесса должны быть запущены):
+
+1) СЕРВЕР (API + БД) — первый терминал:
+   cd D:\YBKNIMEWS\APP2
+   node index.js
+   (или: cd D:\YBKNIMEWS\APP2\server  &&  node index.js)
+   Должно появиться: "Server running on http://localhost:5174"
+
+2) КЛИЕНТ (UI) — второй терминал:
+   cd D:\YBKNIMEWS\APP2\client
+   npm install
+   npm run dev
+   Открыть в браузере: http://localhost:5173
+
+Если в UI "нет подключения" или в консоли Vite "ECONNREFUSED" — сначала запустите сервер (п. 1).
+
+Проверка API: http://localhost:5174/api/check
+Данные: http://localhost:5174/api/data
+Фильтры: http://localhost:5174/api/filters

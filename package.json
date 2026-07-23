@@ -1,0 +1,11 @@
+{
+  "name": "zhgok-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "server": "node index.js",
+    "dev": "npm run dev --prefix client",
+    "start:server": "npm start --prefix server"
+  }
+}
