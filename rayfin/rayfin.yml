@@ -1,0 +1,29 @@
+id: app2
+name: APP2
+version: 1.0.11
+services:
+  auth:
+    enabled: true
+    customClaims:
+      app_version: 1.0.0
+    scopes:
+      - read:data
+      - write:data
+    password:
+      enabled: false
+    allowedRedirectUris:
+      - http://localhost:5173
+      - https://curly-coast-3e91b7a84a-westeurope.webapp.fabricapps.net
+    fabric:
+      enabled: true
+  data:
+    enabled: false
+    dialect: mssql
+  staticHosting:
+    enabled: true
+    folder: client/dist
+    indexDocument: index.html
+  storage:
+    enabled: false
+  functions:
+    enabled: false

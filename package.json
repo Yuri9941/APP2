@@ -7,5 +7,13 @@
     "server": "node index.js",
     "dev": "npm run dev --prefix client",
     "start:server": "npm start --prefix server"
+  },
+  "devDependencies": {
+    "@microsoft/rayfin-cli": "^1.33.2"
+  },
+  "dependencies": {
+    "@microsoft/rayfin-client": "^1.33.2",
+    "@microsoft/rayfin-core": "^1.33.2",
+    "@microsoft/rayfin-data": "^1.33.2"
   }
 }
