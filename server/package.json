@@ -1,7 +1,7 @@
 {
   "name": "zhgok-manual-entry-server",
   "version": "1.0.0",
-  "description": "API for ZHGOK_2026_test manual entry",
+  "description": "API for APP2 manual entry",
   "main": "index.js",
   "type": "module",
   "scripts": {

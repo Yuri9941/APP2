@@ -1,7 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
+import {
+  initEmbeddedAuth,
+  ensureSignedInWithFabric,
+} from '@microsoft/rayfin-auth-provider-fabric';
+import {
+  rayfinClient,
+  fabricAuthOptions,
+  formatDateForInput,
+  rowKey,
+  aggregateRows,
+  fetchApp2Rows,
+  fetchFilterOptions,
+  saveManualRows,
+} from './rayfin';
+import ReportCharts from './charts/ReportCharts';
 
-const API = '/api';
-const REFRESH_INTERVAL_MS = 15 * 60 * 1000; // 15 минут
+const REFRESH_INTERVAL_MS = 60 * 1000; // раз в минуту
 
 const formatDate = (d) => {
   if (!d) return '';
@@ -15,20 +29,9 @@ const formatDateTime = (d) => {
   return isNaN(x.getTime()) ? '' : x.toLocaleString('ru-RU');
 };
 
-const formatDateForInput = (d) => {
-  if (!d) return '';
-  const x = new Date(d);
-  if (isNaN(x.getTime())) return '';
-  const y = x.getFullYear();
-  const m = String(x.getMonth() + 1).padStart(2, '0');
-  const day = String(x.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-};
-
-const rowKey = (r) =>
-  [r.BU, r.KPI_code, formatDateForInput(r.shift_date), r.shift_n, r.SCENARIO || ''].join('|');
-
 export default function App() {
+  const [ready, setReady] = useState(false);
+  const [authBusy, setAuthBusy] = useState(false);
   const [data, setData] = useState([]);
   const [lastUpdate, setLastUpdate] = useState(null);
   const [filters, setFilters] = useState({
@@ -38,30 +41,56 @@ export default function App() {
     shift_n: '',
   });
   const [manualValues, setManualValues] = useState({});
-  const [filterOptions, setFilterOptions] = useState({ bu: [], kpi_code: [], shift_date: [], shift_n: [] });
+  const [filterOptions, setFilterOptions] = useState({
+    bu: [],
+    kpi_code: [],
+    shift_date: [],
+    shift_n: [],
+  });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchFilterOptions = useCallback(async () => {
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await initEmbeddedAuth(rayfinClient.auth, fabricAuthOptions);
+        const session = rayfinClient.auth.getSession();
+        if (!cancelled) setReady(!!session?.isAuthenticated);
+      } catch {
+        if (!cancelled) setReady(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleSignIn = async () => {
+    setAuthBusy(true);
+    setError(null);
     try {
-      const res = await fetch(`${API}/filters`);
-      if (!res.ok) throw new Error(await res.text());
-      const opts = await res.json();
+      await ensureSignedInWithFabric(rayfinClient.auth, fabricAuthOptions);
+      setReady(true);
+    } catch (e) {
+      setError(e?.message || String(e));
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const loadFilterOptions = useCallback(async () => {
+    try {
+      const opts = await fetchFilterOptions();
       setFilterOptions({
         bu: (opts.bu || []).sort(),
         kpi_code: (opts.kpi_code || []).sort((a, b) => a - b),
-        shift_date: (opts.shift_date || []).map((d) => formatDateForInput(d)).filter(Boolean).sort().reverse(),
+        shift_date: (opts.shift_date || []).filter(Boolean).sort().reverse(),
         shift_n: (opts.shift_n || []).sort((a, b) => a - b),
       });
     } catch (e) {
-      const msg = e?.message || String(e);
-      const isNetwork = msg.includes('fetch') || msg.includes('Failed') || msg.includes('NetworkError') || msg.includes('ECONNREFUSED');
-      setError(
-        isNetwork
-          ? 'Не удалось подключиться к API. Проверьте, что сервер запущен на порту 5174 и что UI открыт по адресу Vite (например, http://localhost:5173).'
-          : msg
-      );
+      setError(e?.message || String(e));
     }
   }, []);
 
@@ -69,31 +98,25 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams();
-      if (filters.bu) params.set('bu', filters.bu);
-      if (filters.kpi_code !== '') params.set('kpi_code', filters.kpi_code);
-      if (filters.shift_date) params.set('shift_date', filters.shift_date);
-      if (filters.shift_n !== '') params.set('shift_n', filters.shift_n);
-      const res = await fetch(`${API}/data?${params}`);
-      if (!res.ok) throw new Error(await res.text());
-      const list = await res.json();
+      const raw = await fetchApp2Rows(filters);
+      const list = aggregateRows(raw);
       setData(list);
       setLastUpdate(new Date());
       setManualValues((prev) => {
         const next = { ...prev };
         list.forEach((r) => {
           const key = rowKey(r);
-          if (next[key] === undefined && r.kpi_value_manual != null && r.kpi_value_manual !== '')
+          if (next[key] === undefined && r.kpi_value_manual != null && r.kpi_value_manual !== '') {
             next[key] = String(r.kpi_value_manual);
+          }
         });
         return next;
       });
     } catch (e) {
-      const msg = e.message || String(e);
-      const isNetwork = msg.includes('fetch') || msg.includes('Failed') || msg.includes('NetworkError');
+      const msg = e?.message || String(e);
       setError(
-        isNetwork
-          ? 'Нет подключения к серверу. Запустите API: cd server && node index.js (порт 5174)'
+        msg.includes('auth') || msg.includes('Auth') || msg.includes('401')
+          ? 'Нет сессии Fabric. Нажмите «Войти».'
           : msg
       );
     } finally {
@@ -102,25 +125,28 @@ export default function App() {
   }, [filters.bu, filters.kpi_code, filters.shift_date, filters.shift_n]);
 
   useEffect(() => {
-    fetchFilterOptions();
-  }, [fetchFilterOptions]);
+    if (!ready) return;
+    loadFilterOptions();
+  }, [ready, loadFilterOptions]);
 
   useEffect(() => {
+    if (!ready) return;
     fetchData();
-  }, [fetchData]);
+  }, [ready, fetchData]);
 
   useEffect(() => {
+    if (!ready) return;
     const t = setInterval(fetchData, REFRESH_INTERVAL_MS);
     return () => clearInterval(t);
-  }, [fetchData]);
-
-  const handleRefresh = () => {
-    fetchData();
-  };
+  }, [ready, fetchData]);
 
   const getManualValue = (row) => {
     const key = rowKey(row);
-    return manualValues[key] !== undefined ? manualValues[key] : (row.kpi_value_manual != null ? String(row.kpi_value_manual) : '');
+    return manualValues[key] !== undefined
+      ? manualValues[key]
+      : row.kpi_value_manual != null
+        ? String(row.kpi_value_manual)
+        : '';
   };
 
   const setManualValue = (row, value) => {
@@ -132,46 +158,63 @@ export default function App() {
     const toSave = data
       .map((row) => {
         const manual = getManualValue(row);
-        if (manual === '' && (row.kpi_value_manual == null || row.kpi_value_manual === '')) return null;
+        const prev =
+          row.kpi_value_manual != null && row.kpi_value_manual !== ''
+            ? String(row.kpi_value_manual)
+            : '';
+        if (manual === prev) return null;
+        if (manual === '') return null;
         return {
-          BU: row.BU,
-          KPI_code: row.KPI_code,
+          ...row,
           shift_date: formatDateForInput(row.shift_date) || row.shift_date,
-          shift_n: row.shift_n,
-          SCENARIO: row.SCENARIO || null,
-          kpi_value_manual: manual === '' ? null : parseFloat(manual),
+          kpi_value_manual_prev: row.kpi_value_manual,
+          kpi_value_manual: parseFloat(manual),
         };
       })
       .filter(Boolean);
 
     if (toSave.length === 0) {
-      setError('Нет данных для сохранения. Введите значения в колонку «Значение ручное».');
+      setError('Нет изменений для сохранения. Измените «Значение ручное» и нажмите «Принять».');
       return;
     }
 
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`${API}/save`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(toSave),
-      });
-      if (!res.ok) throw new Error(await res.text());
+      await saveManualRows(toSave);
       await fetchData();
-      await fetchFilterOptions();
+      await loadFilterOptions();
     } catch (e) {
-      setError(e.message);
+      setError(e?.message || String(e));
     } finally {
       setSaving(false);
     }
   };
 
+  if (!ready) {
+    return (
+      <div className="app">
+        <header className="header">
+          <div className="header-left">
+            <button type="button" className="btn" onClick={handleSignIn} disabled={authBusy}>
+              {authBusy ? 'Вход…' : 'Войти через Fabric'}
+            </button>
+          </div>
+        </header>
+        {error && <div className="error">{error}</div>}
+        <p style={{ padding: '1rem' }}>
+          Для работы с таблицей App2 нужна сессия Fabric (SSO). Откройте приложение из портала Fabric
+          или нажмите «Войти через Fabric».
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className={`app ${loading || saving ? 'loading' : ''}`}>
       <header className="header">
         <div className="header-left">
-          <button type="button" className="btn" onClick={handleRefresh} disabled={loading}>
+          <button type="button" className="btn" onClick={fetchData} disabled={loading}>
             Обновить
           </button>
           <button type="button" className="btn" onClick={handleAccept} disabled={saving || loading}>
@@ -194,7 +237,9 @@ export default function App() {
           >
             <option value="">Все</option>
             {filterOptions.bu.map((v) => (
-              <option key={v} value={v}>{v}</option>
+              <option key={v} value={v}>
+                {v}
+              </option>
             ))}
           </select>
         </label>
@@ -206,7 +251,9 @@ export default function App() {
           >
             <option value="">Все</option>
             {filterOptions.kpi_code.map((v) => (
-              <option key={v} value={v}>{v}</option>
+              <option key={v} value={v}>
+                {v}
+              </option>
             ))}
           </select>
         </label>
@@ -218,7 +265,9 @@ export default function App() {
           >
             <option value="">Все</option>
             {filterOptions.shift_date.map((v) => (
-              <option key={v} value={v}>{v}</option>
+              <option key={v} value={v}>
+                {v}
+              </option>
             ))}
           </select>
         </label>
@@ -230,13 +279,17 @@ export default function App() {
           >
             <option value="">Все</option>
             {filterOptions.shift_n.map((v) => (
-              <option key={v} value={v}>{v}</option>
+              <option key={v} value={v}>
+                {v}
+              </option>
             ))}
           </select>
         </label>
       </div>
 
       {error && <div className="error">{error}</div>}
+
+      <ReportCharts rows={data} />
 
       <div className="table-wrap">
         <table>
@@ -250,17 +303,15 @@ export default function App() {
               <th>Сценарий</th>
               <th>Значение автом</th>
               <th>Значение ручное</th>
-              <th>Дата/время ручная внесения/правки</th>
+              <th>Дата/время ручного ввода</th>
+              <th>USER</th>
             </tr>
           </thead>
           <tbody>
             {data.length === 0 && !loading && (
               <tr>
-                <td colSpan={9}>
-                  Нет данных. Убедитесь, что во всех фильтрах выбрано «Все» и нажмите «Обновить».
-                  {!error && ' Если не помогло — откройте в браузере: '}
-                  {!error && <a href="http://localhost:5174/api/data" target="_blank" rel="noreferrer" style={{ color: '#8af' }}>http://localhost:5174/api/data</a>}
-                  {!error && ' (должен вернуться JSON-массив).'}
+                <td colSpan={10}>
+                  Нет данных в App2. Загрузите строки в таблицу Data App / App2 и нажмите «Обновить».
                 </td>
               </tr>
             )}
@@ -286,6 +337,7 @@ export default function App() {
                 <td className="tmstmp-manual">
                   {row.TMSTMP_MANUAL ? formatDateTime(row.TMSTMP_MANUAL) : '—'}
                 </td>
+                <td>{row.USER_MANUAL || '—'}</td>
               </tr>
             ))}
           </tbody>

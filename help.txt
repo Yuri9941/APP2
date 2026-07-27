@@ -1,19 +1,14 @@
-Запуск приложения (оба процесса должны быть запущены):
+Запуск на Fabric:
+  npx rayfin login
+  npx rayfin up
+  Открыть приложение из Fabric portal (SSO) или hosting URL → «Войти через Fabric».
+  Данные: сущность/таблица App2 (Data API), не ZHGOK_2026_test.
 
-1) СЕРВЕР (API + БД) — первый терминал:
-   cd D:\YBKNIMEWS\APP2
-   node index.js
-   (или: cd D:\YBKNIMEWS\APP2\server  &&  node index.js)
-   Должно появиться: "Server running on http://localhost:5174"
+Локально (Express + MS SQL dbo.APP2) — оба процесса:
+1) cd D:\YBKNIMEWS\APP2 && node index.js
+   → http://localhost:5174
+2) cd D:\YBKNIMEWS\APP2\client && npm run dev
+   → http://localhost:5173
 
-2) КЛИЕНТ (UI) — второй терминал:
-   cd D:\YBKNIMEWS\APP2\client
-   npm install
-   npm run dev
-   Открыть в браузере: http://localhost:5173
-
-Если в UI "нет подключения" или в консоли Vite "ECONNREFUSED" — сначала запустите сервер (п. 1).
-
-Проверка API: http://localhost:5174/api/check
-Данные: http://localhost:5174/api/data
-Фильтры: http://localhost:5174/api/filters
+Внимание: Lakehouse Tables/APP2 в workspace 70HFM и таблица App2 в SQL Data App — разные хранилища.
+Rayfin UI читает/пишет SQL Data App (сущность App2). Чтобы наполнить её, загрузите данные туда или синхронизируйте из Lakehouse отдельно.

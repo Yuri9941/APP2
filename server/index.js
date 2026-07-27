@@ -12,7 +12,7 @@ app.use(express.json());
 app.get('/api/check', async (req, res) => {
   try {
     const result = await checkTable();
-    res.json({ ...result, table: 'dbo.ZHGOK_2026_test' });
+    res.json({ ...result, table: 'dbo.APP2' });
   } catch (err) {
     console.error('[/api/check]', err);
     res.status(500).json({

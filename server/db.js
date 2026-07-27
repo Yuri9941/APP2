@@ -25,11 +25,11 @@ export async function getPool() {
   return pool;
 }
 
-/** Проверка доступа к таблице [dbo].[ZHGOK_2026_test] */
+/** Проверка доступа к таблице [dbo].[APP2] */
 export async function checkTable() {
   const pool = await getPool();
   const result = await pool.request().query(`
-    SELECT COUNT(*) AS cnt FROM [dbo].[ZHGOK_2026_test]
+    SELECT COUNT(*) AS cnt FROM [dbo].[APP2]
   `);
   const row = result.recordset?.[0];
   return { ok: true, rowCount: row ? Number(row.cnt) : 0 };
@@ -52,7 +52,7 @@ export async function getData(filters = {}) {
       MAX(CASE WHEN t.value_source = 'APP' THEN t.kpi_value END) AS kpi_value_manual,
       MAX(CASE WHEN t.value_source = 'APP' THEN t.TMSTMP END) AS TMSTMP_MANUAL,
       MAX(CASE WHEN ISNULL(t.value_source, '') <> 'APP' THEN t.kpi_value END) AS kpi_value_auto
-    FROM [dbo].[ZHGOK_2026_test] t
+    FROM [dbo].[APP2] t
     WHERE 1=1
   `;
 
@@ -85,22 +85,22 @@ export async function getData(filters = {}) {
 export async function getFilterOptions() {
   const pool = await getPool();
   const result = await pool.request().query(`
-    SELECT DISTINCT BU FROM [dbo].[ZHGOK_2026_test] WHERE BU IS NOT NULL ORDER BY BU
+    SELECT DISTINCT BU FROM [dbo].[APP2] WHERE BU IS NOT NULL ORDER BY BU
   `);
   const bu = (result.recordset || []).map((r) => r.BU);
 
   const r2 = await pool.request().query(`
-    SELECT DISTINCT KPI_code FROM [dbo].[ZHGOK_2026_test] WHERE KPI_code IS NOT NULL ORDER BY KPI_code
+    SELECT DISTINCT KPI_code FROM [dbo].[APP2] WHERE KPI_code IS NOT NULL ORDER BY KPI_code
   `);
   const kpi_code = (r2.recordset || []).map((r) => r.KPI_code);
 
   const r3 = await pool.request().query(`
-    SELECT DISTINCT shift_date FROM [dbo].[ZHGOK_2026_test] WHERE shift_date IS NOT NULL ORDER BY shift_date DESC
+    SELECT DISTINCT shift_date FROM [dbo].[APP2] WHERE shift_date IS NOT NULL ORDER BY shift_date DESC
   `);
   const shift_date = (r3.recordset || []).map((r) => r.shift_date);
 
   const r4 = await pool.request().query(`
-    SELECT DISTINCT shift_n FROM [dbo].[ZHGOK_2026_test] WHERE shift_n IS NOT NULL ORDER BY shift_n
+    SELECT DISTINCT shift_n FROM [dbo].[APP2] WHERE shift_n IS NOT NULL ORDER BY shift_n
   `);
   const shift_n = (r4.recordset || []).map((r) => r.shift_n);
 
@@ -127,7 +127,7 @@ export async function saveManualRow(row) {
   request.input('kpi_value', sql.Decimal(18, 10), kpi_value_manual);
 
   await request.query(`
-    MERGE [dbo].[ZHGOK_2026_test] AS target
+    MERGE [dbo].[APP2] AS target
     USING (SELECT @BU AS BU, @KPI_code AS KPI_code, @shift_date AS shift_date, @shift_n AS shift_n, @SCENARIO AS SCENARIO) AS source
     ON target.BU = source.BU
        AND target.KPI_code = source.KPI_code
@@ -144,8 +144,8 @@ export async function saveManualRow(row) {
         @KPI_code,
         @shift_date,
         @shift_n,
-        (SELECT TOP 1 ShiftFrom FROM [dbo].[ZHGOK_2026_test] WHERE BU = @BU AND KPI_code = @KPI_code AND shift_date = @shift_date AND shift_n = @shift_n),
-        (SELECT TOP 1 ShiftTo FROM [dbo].[ZHGOK_2026_test] WHERE BU = @BU AND KPI_code = @KPI_code AND shift_date = @shift_date AND shift_n = @shift_n),
+        (SELECT TOP 1 ShiftFrom FROM [dbo].[APP2] WHERE BU = @BU AND KPI_code = @KPI_code AND shift_date = @shift_date AND shift_n = @shift_n),
+        (SELECT TOP 1 ShiftTo FROM [dbo].[APP2] WHERE BU = @BU AND KPI_code = @KPI_code AND shift_date = @shift_date AND shift_n = @shift_n),
         'APP',
         @SCENARIO,
         @kpi_value,
